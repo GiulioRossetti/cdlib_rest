@@ -65,16 +65,33 @@ class CDlib_API(object):
                                                                              json.dumps(
                                                                                  json_graph.node_link_data(network))}))
 
-    def fitness_scores(self, community: NodeClustering, summary: bool = False) -> dict:
-        community_name = "%s_%s" % (community.method_name, community.method_parameters)
+    def fitness_scores(self, communities: list, summary: bool = False) -> dict:
+        community_names = ["%s_%s" % (community.method_name, community.method_parameters) for community in communities]
+
         res = self.loop.run_until_complete(self.__load_data("evaluation/fitness_scores",
-                                                            {'token': self.token, 'community_name': community_name,
+                                                            {'token': self.token,
+                                                             'community_names': json.dumps(community_names),
                                                              'summary': str(summary)}))
+        return json.loads(res)
+
+    def compare_communities(self, communities: list) -> dict:
+        community_names = ["%s_%s" % (community.method_name, community.method_parameters) for community in communities]
+
+        res = self.loop.run_until_complete(self.__load_data("evaluation/community_comparison",
+                                                            {'token': self.token,
+                                                             'community_names': json.dumps(community_names)}))
         return json.loads(res)
 
     def angel(self, threshold: float = 0.25) -> NodeClustering:
         res = self.loop.run_until_complete(self.__load_data("cd/angel", {'token': self.token,
                                                                          'threshold': str(threshold)}))
+        communities = self.__rebuild_communities(res)
+
+        return communities
+
+    def demon(self, epsilon: float = 0.25) -> NodeClustering:
+        res = self.loop.run_until_complete(self.__load_data("cd/demon", {'token': self.token,
+                                                                         'epsilon': str(epsilon)}))
         communities = self.__rebuild_communities(res)
 
         return communities
@@ -87,9 +104,14 @@ if __name__ == '__main__':
         g = nx.karate_club_graph()
         api.load_network(g)
         coms = api.angel(threshold=0.75)
-        print(coms.communities)
-        stats = api.fitness_scores(coms, summary=False)
-        print(stats)
-        stats = api.fitness_scores(coms, summary=True)
-        print(stats)
+        coms2 = api.demon(epsilon=0.25)
 
+        stats = api.fitness_scores([coms, coms2], summary=False)['data']
+        for c, v in stats.items():
+            print(c, v)
+        stats = api.fitness_scores([coms, coms2], summary=True)['data']
+        for c, v in stats.items():
+            print(c, v)
+
+        comp = api.compare_communities([coms2, coms2])['data']
+        print(comp)
