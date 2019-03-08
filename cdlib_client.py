@@ -14,6 +14,20 @@ class CDlib_API(object):
         self.token = None
         self.network = None
 
+    def __enter__(self):
+        self.__create_experiment()
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.__destroy_experiment()
+
+    def __create_experiment(self):
+        data = self.loop.run_until_complete(self.__experiment("create_experiment", True))
+        self.token = json.loads(data)['data']['token']
+
+    def __destroy_experiment(self):
+        self.loop.run_until_complete(self.__experiment("destroy_experiment", False))
+
     def __rebuild_communities(self, res: str) -> NodeClustering:
         cms = json.loads(res)['data']
         communities = readwrite.read_community_from_json_string(json.dumps(cms))
@@ -43,14 +57,6 @@ class CDlib_API(object):
                 res = await self.__post(session, "%s/api/%s" % (self.server, endpoint), {'token': self.token})
             return res
 
-    def create_experiment(self):
-        data = self.loop.run_until_complete(self.__experiment("create_experiment", True))
-        self.token = json.loads(data)['data']['token']
-
-    def destroy_experiment(self):
-        data = self.loop.run_until_complete(self.__experiment("destroy_experiment", False))
-        return json.loads(data)
-
     def load_network(self, network: nx.Graph):
         self.network = network
         self.loop.run_until_complete(self.__load_data("upload/network", {'token': self.token,
@@ -68,12 +74,10 @@ class CDlib_API(object):
 
 if __name__ == '__main__':
 
-    api = CDlib_API("http://0.0.0.0", 8080)
-    g = nx.karate_club_graph()
+    with CDlib_API("http://0.0.0.0", 8081) as api:
 
-    api.create_experiment()
-    api.load_network(g)
-
-    coms = api.angel(threshold=0.75)
-    api.destroy_experiment()
+        g = nx.karate_club_graph()
+        api.load_network(g)
+        coms = api.angel(threshold=0.75)
+        print(coms.communities)
 

@@ -21,7 +21,7 @@ def create_experiment(request):
         ---
         description: This end-point allows to create a new experiment.
         tags:
-        - Health check
+        - Create Experiment
         produces:
         - text/plain
         responses:
@@ -38,6 +38,18 @@ def create_experiment(request):
 
 
 def destroy_experiment(request):
+    """
+        ---
+        description: This end-point allows to destroy an existing experiment.
+        tags:
+            - Destroy Experiment
+        produces:
+            - text/plain
+        responses:
+            "200":
+                description: successful operation.
+
+    """
     token = request.query['token']
     if not os.path.exists("data/db/%s" % token):
         response_obj = {"status": "failure", "description": "token not valid"}
@@ -70,6 +82,20 @@ async def __load_network(request):
 
 
 async def upload_network(request):
+    """
+        ---
+        description: This end-point allows to upload a network dataset.
+        tags:
+            - Upload Network
+        produces:
+            - text/plain
+        responses:
+            "200":
+                description: successful operation.
+            "500":
+                description: operation failed.
+
+    """
     code, resp = __check_token(request)
     if code == 500:
         return web.Response(text=json.dumps(resp), status=500)
@@ -80,6 +106,19 @@ async def upload_network(request):
 
 
 async def angel(request):
+    """
+        ---
+        description: This end-point allows to compute the Angel Community Discovery algorithm to a network dataset.
+        tags:
+            - Angel
+        produces:
+            - application/json
+        responses:
+            "200":
+                description: successful operation.
+            "500":
+                description: operation failed
+        """
     code, resp = __check_token(request)
     if code == 500:
         return web.Response(text=json.dumps(resp), status=500)
@@ -119,4 +158,4 @@ async def make_app():
 
 
 if __name__ == '__main__':
-    web.run_app(make_app(), port=8080)
+    web.run_app(make_app(), port=8081)
