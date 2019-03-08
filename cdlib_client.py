@@ -20,6 +20,7 @@ class CDlib_API(object):
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.__destroy_experiment()
+        self.loop.close()
 
     def __create_experiment(self):
         data = self.loop.run_until_complete(self.__experiment("create_experiment", True))
@@ -64,6 +65,13 @@ class CDlib_API(object):
                                                                              json.dumps(
                                                                                  json_graph.node_link_data(network))}))
 
+    def fitness_scores(self, community: NodeClustering, summary: bool = False) -> dict:
+        community_name = "%s_%s" % (community.method_name, community.method_parameters)
+        res = self.loop.run_until_complete(self.__load_data("evaluation/fitness_scores",
+                                                            {'token': self.token, 'community_name': community_name,
+                                                             'summary': str(summary)}))
+        return json.loads(res)
+
     def angel(self, threshold: float = 0.25) -> NodeClustering:
         res = self.loop.run_until_complete(self.__load_data("cd/angel", {'token': self.token,
                                                                          'threshold': str(threshold)}))
@@ -80,4 +88,8 @@ if __name__ == '__main__':
         api.load_network(g)
         coms = api.angel(threshold=0.75)
         print(coms.communities)
+        stats = api.fitness_scores(coms, summary=False)
+        print(stats)
+        stats = api.fitness_scores(coms, summary=True)
+        print(stats)
 
