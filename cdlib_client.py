@@ -359,6 +359,29 @@ class CDlib_API(object):
         return communities
 
 
+    def async_fluid(self, k) -> NodeClustering:
+        res = self.loop.run_until_complete(self.__load_data("cd/async_fluid", {'token': self.token,
+                                                                             'k': str(k)}))
+        communities = self.__rebuild_communities(res)
+
+        return communities
+
+    def der(self, walk_len: int = 3, threshold: float = .00001, iter_bound: int = 50) -> NodeClustering:
+        res = self.loop.run_until_complete(self.__load_data("cd/der", {'token': self.token,'walk_len': str(walk_len),
+                                                                       'threshold': str(threshold),
+                                                                       'iter_bound': str(iter_bound)}))
+        communities = self.__rebuild_communities(res)
+
+        return communities
+
+    def frc_fgsn(self, theta, eps, r) -> NodeClustering:
+        res = self.loop.run_until_complete(self.__load_data("cd/frc_fgsn", {'token': self.token,'theta': str(theta),
+                                                                       'eps': str(eps),'r': str(r)}))
+        communities = self.__rebuild_communities(res)
+
+        return communities
+
+
 
 if __name__ == '__main__':
 
@@ -367,48 +390,118 @@ if __name__ == '__main__':
         g = nx.karate_club_graph()
         api.load_network(g)
         coms = api.angel(threshold=0.75)
+        print("angel")
+        print(coms.communities)
         coms2 = api.demon(epsilon=0.25)
+        print("demon")
+        print(coms2.communities)
         coms3 = api.ego_networks()
+        print("ego_networks")
+        print(coms3.communities)
         coms4 = api.node_perception() #-> da errore la fitness -> dice che divide per 0
+        print("node_perception")
+        print(coms4.communities)
         seeds = [0,2,6]
         coms5 = api.overlapping_seed_set_expansion(seeds=seeds)
+        print("overlapping_seed_set_expansion")
+        print(coms5.communities)
         com6 = api.kclique(k=3)
+        print("kclique")
+        print(com6.communities)
         com7 = api.lfm(alpha=0.8)
+        print("lfm")
+        print(com7.communities)
         com8 = api.lais2()
+        print("lais2")
+        print(com8.communities)
         com9 = api.congo(number_communities=2)
+        print("congo")
+        print(com9.communities)
         com10 = api.conga(number_communities=2)
+        print("conga")
+        print(com10.communities)
         #com11 = api.lemon(seeds, min_com_size=10, max_com_size=50)
         com12 = api.slpa()
+        print("slpa")
+        print(com12.communities)
         #com13 = api.multicom(seed_node=0)# dice che non e serializzabile
         com14 = api.big_clam() #-> da errore la fitness -> dice che divide per 0
+        print("big_clam")
+        print(com14.communities)
         com15 = api.girvan_newman(level=3) #-> da errore la fitness
+        print("girvan_newman")
+        print(com15.communities)
+       # print("16\n")
+        #print(com16.communities)
         #com16 = api.em(k=3) #dice che non e serializzabile
         com17 = api.scan(0.7, 3)  #-> da errore la fitness
+        print("scan")
+        print(com17.communities)
         com18 = api.gdmp2()
+        print("gdmp2")
+        print(com18.communities)
         com19 = api.spinglass() #-> da errore la fitness
+        print("spinglass")
+        print(com19.communities)
         com20 = api.eigenvector()
+        print("eigenvector")
+        print(com20.communities)
         com21 = api.agdl(3, 2, 2, 0.5)
+        print("agdl")
+        print(com21.communities)
         com22 = api.louvain()
+        print("louvain")
+        print(com22.communities)
         com23 = api.leiden()
+        print("leiden")
+        print(com23.communities)
         com24 = api.rb_pots()
-        com25 = api.rber_pots() #-> da errore la fitness
-        com26 = api.cpm()#-> da errore la fitness
-        com27 = api.significance_communities() #-> da errore la fitness
+        print("rb_pots")
+        print(com24.communities)
+        com25 = api.rber_pots()
+        print("rber_pots")
+        print(com25.communities)
+        com26 = api.cpm()
+        print("cpm")
+        print(com26.communities)
+        com27 = api.significance_communities()
+        print("significance_communities")
+        print(com27.communities)
         com28 = api.surprise_communities()
+        print("surprise_communities")
+        print(com28.communities)
         com29 = api.greedy_modularity()
+        print("greedy_modularity")
+        print(com29.communities)
         com30 = api.infomap()
+        print("infomap")
+        print(com30.communities)
         com31 = api.walktrap()
+        print("walktrap")
+        print(com31.communities)
         com32 = api.label_propagation()
+        print("label_propagation")
+        print(com32.communities)
+        com33 = api.async_fluid(k=3)
+        print("async_fluid")
+        print(com33.communities)
+        com34 = api.der()
+        print("der")
+        print(com34.communities)
+        com35 = api.frc_fgsn(1, 0.5, 3)
+        print("frc_fgsn")
+        print(com35.communities)
+
 
 
 
         stats = api.fitness_scores([coms, coms2,coms3,coms5,com6,com7,com8,com9,com10,com12,com18,com20,com21,com22, com23,com24], summary=False)['data']
-        for c, v in stats.items():
-            print(c, v)
+        #for c, v in stats.items():
+        #    print(c, v)
         stats = api.fitness_scores([coms, coms2,coms3,coms5,com6,com7,com8,com9,com10,com12,com18,com20,com21, com22,
                                     com23,com24], summary=True)['data']
-        for c, v in stats.items():
-            print(c, v)
+        #for c, v in stats.items():
+        #    print(c, v)
 
         comp = api.compare_communities([coms2, coms2])['data']
-        print(comp)
+        #print(comp)

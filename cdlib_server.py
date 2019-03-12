@@ -2028,6 +2028,175 @@ async def label_propagation(request):
         return web.Response(text=json.dumps(response_obj), status=500)
 
 
+async def async_fluid(request):
+    """
+        ---
+        description: This end-point allows to compute async_fluid Community Discovery algorithm to a network dataset.
+        tags:
+            - async_fluid
+        produces:
+            - application/json
+        responses:
+            "200":
+                description: successful operation.
+            "500":
+                description: operation failed
+
+        parameters:
+        - in: query
+          name: token
+          schema:
+            type: string
+          required: true
+          description: Experiment token
+        - in: query
+          name: k
+          schema:
+            type: integer
+          required: true
+          description: Number of communities to search
+        """
+    code, resp = __check_token(request)
+    if code == 500:
+        return web.Response(text=json.dumps(resp), status=500)
+
+    g = await __load_network(request)
+
+    try:
+        k = int(request.query['k'])
+        communities = algorithms.async_fluid(g,k)
+        resp = json.loads(communities.to_json())
+        response_obj = {'status': 'success', "data": resp}
+        await __save_communities(communities, request)
+        return web.Response(text=json.dumps(response_obj), status=200)
+
+    except Exception as e:
+        response_obj = {'status': 'failure', 'description': str(e)}
+        return web.Response(text=json.dumps(response_obj), status=500)
+
+
+async def der(request):
+    """
+        ---
+        description: This end-point allows to compute der Community Discovery algorithm to a network dataset.
+        tags:
+            - der
+        produces:
+            - application/json
+        responses:
+            "200":
+                description: successful operation.
+            "500":
+                description: operation failed
+
+        parameters:
+        - in: query
+          name: token
+          schema:
+            type: string
+          required: true
+          description: Experiment token
+        - in: query
+          name: walk_len
+          schema:
+            type: integer
+          required: true
+          description: length of the random walk, default 3
+        - in: query
+          name: threshold
+          schema:
+            type: float
+          required: true
+          description: threshold for stop criteria; if the likelihood_diff is less than threshold tha algorithm stops, default 0.00001
+        - in: query
+          name: iter_bound
+          schema:
+            type: integer
+          required: true
+          description: maximum number of iteration, default 50
+        """
+    code, resp = __check_token(request)
+    if code == 500:
+        return web.Response(text=json.dumps(resp), status=500)
+
+    g = await __load_network(request)
+
+    try:
+        walk_len = int(request.query['walk_len'])
+        threshold = float(request.query['threshold'])
+        iter_bound = int(request.query['iter_bound'])
+        communities = algorithms.der(g,walk_len,threshold,iter_bound)
+        resp = json.loads(communities.to_json())
+        response_obj = {'status': 'success', "data": resp}
+        await __save_communities(communities, request)
+        return web.Response(text=json.dumps(response_obj), status=200)
+
+    except Exception as e:
+        response_obj = {'status': 'failure', 'description': str(e)}
+        return web.Response(text=json.dumps(response_obj), status=500)
+
+
+
+async def frc_fgsn(request):
+    """
+        ---
+        description: This end-point allows to compute frc_fgsn Community Discovery algorithm to a network dataset.
+        tags:
+            - frc_fgsn
+        produces:
+            - application/json
+        responses:
+            "200":
+                description: successful operation.
+            "500":
+                description: operation failed
+
+        parameters:
+        - in: query
+          name: token
+          schema:
+            type: string
+          required: true
+          description: Experiment token
+        - in: query
+          name: theta
+          schema:
+            type: float
+          required: true
+          description: community density coefficient
+        - in: query
+          name: eps
+          schema:
+            type: float
+          required: true
+          description: coupling coefficient of the community. Ranges in [0, 1], small values ensure that only strongly connected node granules are merged togheter.
+        - in: query
+          name: r
+          schema:
+            type: integer
+          required: true
+          description: radius of the granule
+        """
+    code, resp = __check_token(request)
+    if code == 500:
+        return web.Response(text=json.dumps(resp), status=500)
+
+    g = await __load_network(request)
+
+    try:
+        theta = float(request.query['theta'])
+        eps = float(request.query['eps'])
+        r = int(request.query['r'])
+        communities = algorithms.frc_fgsn(g,theta,eps,r)
+        resp = json.loads(communities.to_json())
+        response_obj = {'status': 'success', "data": resp}
+        await __save_communities(communities, request)
+        return web.Response(text=json.dumps(response_obj), status=200)
+
+    except Exception as e:
+        response_obj = {'status': 'failure', 'description': str(e)}
+        return web.Response(text=json.dumps(response_obj), status=500)
+
 
 async def make_app():
     app = web.Application()
@@ -2070,7 +2239,10 @@ async def make_app():
         web.post('/api/cd/greedy_modularity', greedy_modularity),
         web.post('/api/cd/infomap', infomap),
         web.post('/api/cd/walktrap', walktrap),
-        web.post('/api/cd/label_propagation', label_propagation)
+        web.post('/api/cd/label_propagation', label_propagation),
+        web.post('/api/cd/async_fluid', async_fluid),
+        web.post('/api/cd/der', der),
+        web.post('/api/cd/frc_fgsn', frc_fgsn)
 
     ])
 
