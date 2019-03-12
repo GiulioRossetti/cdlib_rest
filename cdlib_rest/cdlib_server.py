@@ -5,18 +5,18 @@ import uuid
 
 from aiohttp import web
 from aiohttp_swagger import *
-from cdlib import algorithms, readwrite, NodeClustering
+from cdlib import algorithms, readwrite
 from networkx.readwrite import json_graph
 
 
 def __unpack_stats(stats):
-    return {"min": stats[0], "max": stats[1], "mean": stats[2], "std": stats[3]}
+    return dict(min=stats[0], max=stats[1], mean=stats[2], std=stats[3])
 
 
 def __check_token(request):
     token = request.query['token']
-    if not os.path.exists("data/db/%s" % token):
-        response_obj = {'status': 'failure', 'description': "token not valid"}
+    if not os.path.exists(f"../data/db/{token}"):
+        response_obj = dict(status='failure', description="token not valid")
         return 500, response_obj
     else:
         return 200, None
@@ -25,20 +25,19 @@ def __check_token(request):
 async def __save_communities(communities, request):
     token = request.query['token']
     readwrite.write_community_json(communities,
-                                   "data/db/%s/%s_%s" % (token, communities.method_name,
-                                                         communities.method_parameters))
+                                   f"../data/db/{token}/{communities.method_name}_{communities.method_parameters}")
 
 
 async def __save_network(request):
     token = request.query['token']
     network = request.query['network']
-    with open("data/db/%s/network.json" % token, "w") as f:
+    with open(f"../data/db/{token}/network.json", "w") as f:
         f.write(network)
 
 
 async def __load_network(request):
     token = request.query['token']
-    data = json.load(open("data/db/%s/network.json" % token))
+    data = json.load(open(f"../data/db/{token}/network.json"))
     network = json_graph.node_link_graph(data)
     return network
 
@@ -46,7 +45,7 @@ async def __load_network(request):
 async def __load_communities(request) -> list:
     token = request.query['token']
     community_names = json.loads(request.query['community_names'])
-    community = [readwrite.read_community_json("data/db/%s/%s" % (token, name)) for name in community_names]
+    community = [readwrite.read_community_json(f"../data/db/{token}/{name}") for name in community_names]
     return community
 
 
@@ -63,10 +62,10 @@ def create_experiment(request):
                 description: successful operation. Return experiment "token"
     """
     token = str(uuid.uuid4())
-    directory = "data/db/%s" % token
+    directory = f"../data/db/{token}"
     if not os.path.exists(directory):
         os.makedirs(directory)
-    response_obj = {"status": "success", "data": {"token": token}}
+    response_obj = dict(status="success", data={"token": token})
     return web.Response(text=json.dumps(response_obj), status=200)
 
 
@@ -90,12 +89,12 @@ def destroy_experiment(request):
           description: Experiment token
     """
     token = request.query['token']
-    if not os.path.exists("data/db/%s" % token):
-        response_obj = {"status": "failure", "description": "token not valid"}
+    if not os.path.exists(f"../data/db/{token}"):
+        response_obj = dict(status="failure", description="token not valid")
         return web.Response(text=json.dumps(response_obj), status=500)
     else:
-        shutil.rmtree("data/db/%s" % token)
-        response_obj = {"status": "success"}
+        shutil.rmtree(f"../data/db/{token}")
+        response_obj = dict(status="success")
         return web.Response(text=json.dumps(response_obj), status=200)
 
 
@@ -132,7 +131,7 @@ async def upload_network(request):
         return web.Response(text=json.dumps(resp), status=500)
 
     await __save_network(request)
-    response_obj = {"status": "success"}
+    response_obj = dict(status="success")
     return web.Response(text=json.dumps(response_obj), status=200)
 
 
@@ -183,7 +182,7 @@ async def community_comparison(request):
     try:
         f1 = com1.f1(com2)
         data = dict(onmi=com1.overlapping_normalized_mutual_information(com2), omega=com1.omega(com2),
-                    f1={"mean": f1[0], "std": f1[1]}, nf1=com1.nf1(com2))
+                    f1=dict(mean=f1[0], std=f1[1]), nf1=com1.nf1(com2))
 
         if not com1.overlap and not com2.overlap:
             crisp = dict(nmi=com1.normalized_mutual_information(com2),
@@ -191,11 +190,11 @@ async def community_comparison(request):
                          vi=com1.variation_of_information(com2))
             data = {**data, **crisp}
 
-        response_obj = {'status': 'success', "data": data}
+        response_obj = dict(status='success', data=data)
         return web.Response(text=json.dumps(response_obj), status=200)
 
     except Exception as e:
-        response_obj = {'status': 'failure', 'description': str(e)}
+        response_obj = dict(status='failure', description=str(e))
         return web.Response(text=json.dumps(response_obj), status=500)
 
 
@@ -275,13 +274,13 @@ async def community_statistics(request):
                                 internal_edge_density=com.internal_edge_density(summary=False),
                                 average_internal_degree=com.average_internal_degree(summary=False))
 
-            data["%s_%s" % (com.method_name, com.method_parameters)] = {**simple, **composed}
+            data[f"{com.method_name}_{com.method_parameters}"] = {**simple, **composed}
 
-        response_obj = {'status': 'success', "data": data}
+        response_obj = dict(status='success', data=data)
         return web.Response(text=json.dumps(response_obj), status=200)
 
     except Exception as e:
-        response_obj = {'status': 'failure', 'description': str(e)}
+        response_obj = dict(status='failure', description=str(e))
         return web.Response(text=json.dumps(response_obj), status=500)
 
 
@@ -330,12 +329,12 @@ async def angel(request):
         com_size = int(request.query['min_com_size'])
         communities = algorithms.angel(g, th, com_size)
         resp = json.loads(communities.to_json())
-        response_obj = {'status': 'success', "data": resp}
+        response_obj = dict(status='success', data=resp)
         await __save_communities(communities, request)
         return web.Response(text=json.dumps(response_obj), status=200)
 
     except Exception as e:
-        response_obj = {'status': 'failure', 'description': str(e)}
+        response_obj = dict(status='failure', description=str(e))
         return web.Response(text=json.dumps(response_obj), status=500)
 
 
@@ -384,12 +383,12 @@ async def demon(request):
         com_size = int(request.query['min_com_size'])
         communities = algorithms.demon(g, th, com_size)
         resp = json.loads(communities.to_json())
-        response_obj = {'status': 'success', "data": resp}
+        response_obj = dict(status='success', data=resp)
         await __save_communities(communities, request)
         return web.Response(text=json.dumps(response_obj), status=200)
 
     except Exception as e:
-        response_obj = {'status': 'failure', 'description': str(e)}
+        response_obj = dict(status='failure', description=str(e))
         return web.Response(text=json.dumps(response_obj), status=500)
 
 
@@ -431,12 +430,12 @@ async def kclique(request):
         k = int(request.query['k'])
         communities = algorithms.kclique(g, k)
         resp = json.loads(communities.to_json())
-        response_obj = {'status': 'success', "data": resp}
+        response_obj = dict(status='success', data=resp)
         await __save_communities(communities, request)
         return web.Response(text=json.dumps(response_obj), status=200)
 
     except Exception as e:
-        response_obj = {'status': 'failure', 'description': str(e)}
+        response_obj = dict(status='failure', description=str(e))
         return web.Response(text=json.dumps(response_obj), status=500)
 
 
@@ -478,12 +477,12 @@ async def lfm(request):
         alpha = float(request.query['alpha'])
         communities = algorithms.lfm(g, alpha)
         resp = json.loads(communities.to_json())
-        response_obj = {'status': 'success', "data": resp}
+        response_obj = dict(status='success', data=resp)
         await __save_communities(communities, request)
         return web.Response(text=json.dumps(response_obj), status=200)
 
     except Exception as e:
-        response_obj = {'status': 'failure', 'description': str(e)}
+        response_obj = dict(status='failure', description=str(e))
         return web.Response(text=json.dumps(response_obj), status=500)
 
 
@@ -525,12 +524,12 @@ async def ego_networks(request):
         com_level = int(request.query['level'])
         communities = algorithms.ego_networks(g, com_level)
         resp = json.loads(communities.to_json())
-        response_obj = {'status': 'success', "data": resp}
+        response_obj = dict(status='success', data=resp)
         await __save_communities(communities, request)
         return web.Response(text=json.dumps(response_obj), status=200)
 
     except Exception as e:
-        response_obj = {'status': 'failure', 'description': str(e)}
+        response_obj = dict(status='failure', description=str(e))
         return web.Response(text=json.dumps(response_obj), status=500)
 
 
@@ -629,14 +628,15 @@ async def overlapping_seed_set_expansion(request):
         nruns = int(request.query['nruns'])
         alpha = float(request.query['alpha'])
         delta = float(request.query['delta'])
-        communities = algorithms.overlapping_seed_set_expansion(g, seeds,ninf,expansion,stopping,nworkers,nruns,alpha,float('INF'),delta)
+        communities = algorithms.overlapping_seed_set_expansion(g, seeds, ninf, expansion, stopping, nworkers, nruns,
+                                                                alpha, float('INF'), delta)
         resp = json.loads(communities.to_json())
-        response_obj = {'status': 'success', "data": resp}
+        response_obj = dict(status='success', data=resp)
         await __save_communities(communities, request)
         return web.Response(text=json.dumps(response_obj), status=200)
 
     except Exception as e:
-        response_obj = {'status': 'failure', 'description': str(e)}
+        response_obj = dict(status='failure', description=str(e))
         return web.Response(text=json.dumps(response_obj), status=500)
 
 
@@ -671,12 +671,12 @@ async def lais2(request):
     try:
         communities = algorithms.lais2(g)
         resp = json.loads(communities.to_json())
-        response_obj = {'status': 'success', "data": resp}
+        response_obj = dict(status='success', data=resp)
         await __save_communities(communities, request)
         return web.Response(text=json.dumps(response_obj), status=200)
 
     except Exception as e:
-        response_obj = {'status': 'failure', 'description': str(e)}
+        response_obj = dict(status='failure', description=str(e))
         return web.Response(text=json.dumps(response_obj), status=500)
 
 
@@ -723,14 +723,14 @@ async def congo(request):
     try:
         number_communities = int(request.query['number_communities'])
         height = int(request.query['height'])
-        communities = algorithms.congo(g,number_communities,height)
+        communities = algorithms.congo(g, number_communities, height)
         resp = json.loads(communities.to_json())
-        response_obj = {'status': 'success', "data": resp}
+        response_obj = dict(status='success', data=resp)
         await __save_communities(communities, request)
         return web.Response(text=json.dumps(response_obj), status=200)
 
     except Exception as e:
-        response_obj = {'status': 'failure', 'description': str(e)}
+        response_obj = dict(status='failure', description=str(e))
         return web.Response(text=json.dumps(response_obj), status=500)
 
 
@@ -770,14 +770,14 @@ async def conga(request):
 
     try:
         number_communities = int(request.query['number_communities'])
-        communities = algorithms.conga(g,number_communities)
+        communities = algorithms.conga(g, number_communities)
         resp = json.loads(communities.to_json())
-        response_obj = {'status': 'success', "data": resp}
+        response_obj = dict(status='success', data=resp)
         await __save_communities(communities, request)
         return web.Response(text=json.dumps(response_obj), status=200)
 
     except Exception as e:
-        response_obj = {'status': 'failure', 'description': str(e)}
+        response_obj = dict(status='failure', description=str(e))
         return web.Response(text=json.dumps(response_obj), status=500)
 
 
@@ -863,16 +863,15 @@ async def lemon(request):
         else:
             biased = True
         subspace_dim = int(request.query['subspace_dim'])
-        print("ok")
-        communities = algorithms.lemon(g,seeds,min_com_size,max_com_size,expand_step,subspace_dim,walk_steps,biased)
-        print(communities.communities)
+        communities = algorithms.lemon(g, seeds, min_com_size, max_com_size, expand_step, subspace_dim, walk_steps,
+                                       biased)
         resp = json.loads(communities.to_json())
-        response_obj = {'status': 'success', "data": resp}
+        response_obj = dict(status='success', data=resp)
         await __save_communities(communities, request)
         return web.Response(text=json.dumps(response_obj), status=200)
 
     except Exception as e:
-        response_obj = {'status': 'failure', 'description': str(e)}
+        response_obj = dict(status='failure', description=str(e))
         return web.Response(text=json.dumps(response_obj), status=500)
 
 
@@ -919,14 +918,14 @@ async def slpa(request):
     try:
         t = int(request.query['t'])
         r = float(request.query['r'])
-        communities = algorithms.slpa(g,t,r)
+        communities = algorithms.slpa(g, t, r)
         resp = json.loads(communities.to_json())
-        response_obj = {'status': 'success', "data": resp}
+        response_obj = dict(status='success', data=resp)
         await __save_communities(communities, request)
         return web.Response(text=json.dumps(response_obj), status=200)
 
     except Exception as e:
-        response_obj = {'status': 'failure', 'description': str(e)}
+        response_obj = dict(status='failure', description=str(e))
         return web.Response(text=json.dumps(response_obj), status=500)
 
 
@@ -968,12 +967,12 @@ async def multicom(request):
         seed_node = json.loads(request.query['seed_node'])
         communities = algorithms.multicom(g, seed_node)
         resp = json.loads(communities.to_json())
-        response_obj = {'status': 'success', "data": resp}
+        response_obj = dict(status='success', data=resp)
         await __save_communities(communities, request)
         return web.Response(text=json.dumps(response_obj), status=200)
 
     except Exception as e:
-        response_obj = {'status': 'failure', 'description': str(e)}
+        response_obj = dict(status='failure', description=str(e))
         return web.Response(text=json.dumps(response_obj), status=500)
 
 
@@ -1013,14 +1012,14 @@ async def big_clam(request):
 
     try:
         number_communities = int(request.query['number_communities'])
-        communities = algorithms.big_clam(g,number_communities)
+        communities = algorithms.big_clam(g, number_communities)
         resp = json.loads(communities.to_json())
-        response_obj = {'status': 'success', "data": resp}
+        response_obj = dict(status='success', data=resp)
         await __save_communities(communities, request)
         return web.Response(text=json.dumps(response_obj), status=200)
 
     except Exception as e:
-        response_obj = {'status': 'failure', 'description': str(e)}
+        response_obj = dict(status='failure', description=str(e))
         return web.Response(text=json.dumps(response_obj), status=500)
 
 
@@ -1076,14 +1075,13 @@ async def node_perception(request):
         com_size = int(request.query['min_comm_size'])
         communities = algorithms.node_perception(g, th, ov_th, com_size)
         resp = json.loads(communities.to_json())
-        response_obj = {'status': 'success', "data": resp}
+        response_obj = dict(status='success', data=resp)
         await __save_communities(communities, request)
         return web.Response(text=json.dumps(response_obj), status=200)
 
     except Exception as e:
-        response_obj = {'status': 'failure', 'description': str(e)}
+        response_obj = dict(status='failure', description=str(e))
         return web.Response(text=json.dumps(response_obj), status=500)
-
 
 
 # crisp partition
@@ -1123,14 +1121,14 @@ async def girvan_newman(request):
 
     try:
         level = int(request.query['level'])
-        communities = algorithms.girvan_newman(g,level)
+        communities = algorithms.girvan_newman(g, level)
         resp = json.loads(communities.to_json())
-        response_obj = {'status': 'success', "data": resp}
+        response_obj = dict(status='success', data=resp)
         await __save_communities(communities, request)
         return web.Response(text=json.dumps(response_obj), status=200)
 
     except Exception as e:
-        response_obj = {'status': 'failure', 'description': str(e)}
+        response_obj = dict(status='failure', description=str(e))
         return web.Response(text=json.dumps(response_obj), status=500)
 
 
@@ -1170,14 +1168,14 @@ async def em(request):
 
     try:
         k = int(request.query['k'])
-        communities = algorithms.em(g,k)
+        communities = algorithms.em(g, k)
         resp = json.loads(communities.to_json())
-        response_obj = {'status': 'success', "data": resp}
+        response_obj = dict(status='success', data=resp)
         await __save_communities(communities, request)
         return web.Response(text=json.dumps(response_obj), status=200)
 
     except Exception as e:
-        response_obj = {'status': 'failure', 'description': str(e)}
+        response_obj = dict(status='failure', description=str(e))
         return web.Response(text=json.dumps(response_obj), status=500)
 
 
@@ -1224,14 +1222,14 @@ async def scan(request):
     try:
         epsilon = float(request.query['epsilon'])
         mu = int(request.query['mu'])
-        communities = algorithms.scan(g,epsilon,mu)
+        communities = algorithms.scan(g, epsilon, mu)
         resp = json.loads(communities.to_json())
-        response_obj = {'status': 'success', "data": resp}
+        response_obj = dict(status='success', data=resp)
         await __save_communities(communities, request)
         return web.Response(text=json.dumps(response_obj), status=200)
 
     except Exception as e:
-        response_obj = {'status': 'failure', 'description': str(e)}
+        response_obj = dict(status='failure', description=str(e))
         return web.Response(text=json.dumps(response_obj), status=500)
 
 
@@ -1271,14 +1269,14 @@ async def gdmp2(request):
 
     try:
         min_threshold = float(request.query['min_threshold'])
-        communities = algorithms.gdmp2(g,min_threshold)
+        communities = algorithms.gdmp2(g, min_threshold)
         resp = json.loads(communities.to_json())
-        response_obj = {'status': 'success', "data": resp}
+        response_obj = dict(status='success', data=resp)
         await __save_communities(communities, request)
         return web.Response(text=json.dumps(response_obj), status=200)
 
     except Exception as e:
-        response_obj = {'status': 'failure', 'description': str(e)}
+        response_obj = dict(status='failure', description=str(e))
         return web.Response(text=json.dumps(response_obj), status=500)
 
 
@@ -1313,12 +1311,12 @@ async def spinglass(request):
     try:
         communities = algorithms.spinglass(g)
         resp = json.loads(communities.to_json())
-        response_obj = {'status': 'success', "data": resp}
+        response_obj = dict(status='success', data=resp)
         await __save_communities(communities, request)
         return web.Response(text=json.dumps(response_obj), status=200)
 
     except Exception as e:
-        response_obj = {'status': 'failure', 'description': str(e)}
+        response_obj = dict(status='failure', description=str(e))
         return web.Response(text=json.dumps(response_obj), status=500)
 
 
@@ -1353,12 +1351,12 @@ async def eigenvector(request):
     try:
         communities = algorithms.eigenvector(g)
         resp = json.loads(communities.to_json())
-        response_obj = {'status': 'success', "data": resp}
+        response_obj = dict(status='success', data=resp)
         await __save_communities(communities, request)
         return web.Response(text=json.dumps(response_obj), status=200)
 
     except Exception as e:
-        response_obj = {'status': 'failure', 'description': str(e)}
+        response_obj = dict(status='failure', description=str(e))
         return web.Response(text=json.dumps(response_obj), status=500)
 
 
@@ -1419,14 +1417,14 @@ async def agdl(request):
         number_neighbors = int(request.query['number_neighbors'])
         kc = int(request.query['kc'])
         a = float(request.query['a'])
-        communities = algorithms.agdl(g,number_communities,number_neighbors,kc,a)
+        communities = algorithms.agdl(g, number_communities, number_neighbors, kc, a)
         resp = json.loads(communities.to_json())
-        response_obj = {'status': 'success', "data": resp}
+        response_obj = dict(status='success', data=resp)
         await __save_communities(communities, request)
         return web.Response(text=json.dumps(response_obj), status=200)
 
     except Exception as e:
-        response_obj = {'status': 'failure', 'description': str(e)}
+        response_obj = dict(status='failure', description=str(e))
         return web.Response(text=json.dumps(response_obj), status=500)
 
 
@@ -1484,14 +1482,14 @@ async def louvain(request):
             randomize = False
         else:
             randomize = True
-        communities = algorithms.louvain(g,weight,resolution,randomize)
+        communities = algorithms.louvain(g, weight, resolution, randomize)
         resp = json.loads(communities.to_json())
-        response_obj = {'status': 'success', "data": resp}
+        response_obj = dict(status='success', data=resp)
         await __save_communities(communities, request)
         return web.Response(text=json.dumps(response_obj), status=200)
 
     except Exception as e:
-        response_obj = {'status': 'failure', 'description': str(e)}
+        response_obj = dict(status='failure', description=str(e))
         return web.Response(text=json.dumps(response_obj), status=500)
 
 
@@ -1538,14 +1536,14 @@ async def leiden(request):
     try:
         initial_membership = json.loads(request.query['initial_membership'])
         weights = json.loads(request.query['weights'])
-        communities = algorithms.leiden(g,initial_membership,weights)
+        communities = algorithms.leiden(g, initial_membership, weights)
         resp = json.loads(communities.to_json())
-        response_obj = {'status': 'success', "data": resp}
+        response_obj = dict(status='success', data=resp)
         await __save_communities(communities, request)
         return web.Response(text=json.dumps(response_obj), status=200)
 
     except Exception as e:
-        response_obj = {'status': 'failure', 'description': str(e)}
+        response_obj = dict(status='failure', description=str(e))
         return web.Response(text=json.dumps(response_obj), status=500)
 
 
@@ -1598,15 +1596,15 @@ async def rb_pots(request):
     try:
         initial_membership = json.loads(request.query['initial_membership'])
         weights = json.loads(request.query['weights'])
-        resolution_parameter= float(request.query['resolution_parameter'])
-        communities = algorithms.rb_pots(g,initial_membership,weights,resolution_parameter)
+        resolution_parameter = float(request.query['resolution_parameter'])
+        communities = algorithms.rb_pots(g, initial_membership, weights, resolution_parameter)
         resp = json.loads(communities.to_json())
-        response_obj = {'status': 'success', "data": resp}
+        response_obj = dict(status='success', data=resp)
         await __save_communities(communities, request)
         return web.Response(text=json.dumps(response_obj), status=200)
 
     except Exception as e:
-        response_obj = {'status': 'failure', 'description': str(e)}
+        response_obj = dict(status='failure', description=str(e))
         return web.Response(text=json.dumps(response_obj), status=500)
 
 
@@ -1666,15 +1664,15 @@ async def rber_pots(request):
         initial_membership = json.loads(request.query['initial_membership'])
         weights = json.loads(request.query['weights'])
         node_sizes = json.loads(request.query['node_sizes'])
-        resolution_parameter= float(request.query['resolution_parameter'])
-        communities = algorithms.rber_pots(g,initial_membership,weights,node_sizes,resolution_parameter)
+        resolution_parameter = float(request.query['resolution_parameter'])
+        communities = algorithms.rber_pots(g, initial_membership, weights, node_sizes, resolution_parameter)
         resp = json.loads(communities.to_json())
-        response_obj = {'status': 'success', "data": resp}
+        response_obj = dict(status='success', data=resp)
         await __save_communities(communities, request)
         return web.Response(text=json.dumps(response_obj), status=200)
 
     except Exception as e:
-        response_obj = {'status': 'failure', 'description': str(e)}
+        response_obj = dict(status='failure', description=str(e))
         return web.Response(text=json.dumps(response_obj), status=500)
 
 
@@ -1734,15 +1732,15 @@ async def cpm(request):
         initial_membership = json.loads(request.query['initial_membership'])
         weights = json.loads(request.query['weights'])
         node_sizes = json.loads(request.query['node_sizes'])
-        resolution_parameter= float(request.query['resolution_parameter'])
-        communities = algorithms.cpm(g,initial_membership,weights,node_sizes,resolution_parameter)
+        resolution_parameter = float(request.query['resolution_parameter'])
+        communities = algorithms.cpm(g, initial_membership, weights, node_sizes, resolution_parameter)
         resp = json.loads(communities.to_json())
-        response_obj = {'status': 'success', "data": resp}
+        response_obj = dict(status='success', data=resp)
         await __save_communities(communities, request)
         return web.Response(text=json.dumps(response_obj), status=200)
 
     except Exception as e:
-        response_obj = {'status': 'failure', 'description': str(e)}
+        response_obj = dict(status='failure', description=str(e))
         return web.Response(text=json.dumps(response_obj), status=500)
 
 
@@ -1789,14 +1787,14 @@ async def significance_communities(request):
     try:
         initial_membership = json.loads(request.query['initial_membership'])
         node_sizes = json.loads(request.query['node_sizes'])
-        communities = algorithms.significance_communities(g,initial_membership,node_sizes)
+        communities = algorithms.significance_communities(g, initial_membership, node_sizes)
         resp = json.loads(communities.to_json())
-        response_obj = {'status': 'success', "data": resp}
+        response_obj = dict(status='success', data=resp)
         await __save_communities(communities, request)
         return web.Response(text=json.dumps(response_obj), status=200)
 
     except Exception as e:
-        response_obj = {'status': 'failure', 'description': str(e)}
+        response_obj = dict(status='failure', description=str(e))
         return web.Response(text=json.dumps(response_obj), status=500)
 
 
@@ -1850,14 +1848,14 @@ async def surprise_communities(request):
         initial_membership = json.loads(request.query['initial_membership'])
         weights = json.loads(request.query['weights'])
         node_sizes = json.loads(request.query['node_sizes'])
-        communities = algorithms.surprise_communities(g,initial_membership,weights,node_sizes)
+        communities = algorithms.surprise_communities(g, initial_membership, weights, node_sizes)
         resp = json.loads(communities.to_json())
-        response_obj = {'status': 'success', "data": resp}
+        response_obj = dict(status='success', data=resp)
         await __save_communities(communities, request)
         return web.Response(text=json.dumps(response_obj), status=200)
 
     except Exception as e:
-        response_obj = {'status': 'failure', 'description': str(e)}
+        response_obj = dict(status='failure', description=str(e))
         return web.Response(text=json.dumps(response_obj), status=500)
 
 
@@ -1897,14 +1895,14 @@ async def greedy_modularity(request):
 
     try:
         weights = json.loads(request.query['weights'])
-        communities = algorithms.greedy_modularity(g,weights)
+        communities = algorithms.greedy_modularity(g, weights)
         resp = json.loads(communities.to_json())
-        response_obj = {'status': 'success', "data": resp}
+        response_obj = dict(status='success', data=resp)
         await __save_communities(communities, request)
         return web.Response(text=json.dumps(response_obj), status=200)
 
     except Exception as e:
-        response_obj = {'status': 'failure', 'description': str(e)}
+        response_obj = dict(status='failure', description=str(e))
         return web.Response(text=json.dumps(response_obj), status=500)
 
 
@@ -1939,12 +1937,12 @@ async def infomap(request):
     try:
         communities = algorithms.infomap(g)
         resp = json.loads(communities.to_json())
-        response_obj = {'status': 'success', "data": resp}
+        response_obj = dict(status='success', data=resp)
         await __save_communities(communities, request)
         return web.Response(text=json.dumps(response_obj), status=200)
 
     except Exception as e:
-        response_obj = {'status': 'failure', 'description': str(e)}
+        response_obj = dict(status='failure', description=str(e))
         return web.Response(text=json.dumps(response_obj), status=500)
 
 
@@ -1979,12 +1977,12 @@ async def walktrap(request):
     try:
         communities = algorithms.walktrap(g)
         resp = json.loads(communities.to_json())
-        response_obj = {'status': 'success', "data": resp}
+        response_obj = dict(status='success', data=resp)
         await __save_communities(communities, request)
         return web.Response(text=json.dumps(response_obj), status=200)
 
     except Exception as e:
-        response_obj = {'status': 'failure', 'description': str(e)}
+        response_obj = dict(status='failure', description=str(e))
         return web.Response(text=json.dumps(response_obj), status=500)
 
 
@@ -2019,12 +2017,12 @@ async def label_propagation(request):
     try:
         communities = algorithms.label_propagation(g)
         resp = json.loads(communities.to_json())
-        response_obj = {'status': 'success', "data": resp}
+        response_obj = dict(status='success', data=resp)
         await __save_communities(communities, request)
         return web.Response(text=json.dumps(response_obj), status=200)
 
     except Exception as e:
-        response_obj = {'status': 'failure', 'description': str(e)}
+        response_obj = dict(status='failure', description=str(e))
         return web.Response(text=json.dumps(response_obj), status=500)
 
 
@@ -2064,14 +2062,14 @@ async def async_fluid(request):
 
     try:
         k = int(request.query['k'])
-        communities = algorithms.async_fluid(g,k)
+        communities = algorithms.async_fluid(g, k)
         resp = json.loads(communities.to_json())
-        response_obj = {'status': 'success', "data": resp}
+        response_obj = dict(status='success', data=resp)
         await __save_communities(communities, request)
         return web.Response(text=json.dumps(response_obj), status=200)
 
     except Exception as e:
-        response_obj = {'status': 'failure', 'description': str(e)}
+        response_obj = dict(status='failure', description=str(e))
         return web.Response(text=json.dumps(response_obj), status=500)
 
 
@@ -2125,16 +2123,15 @@ async def der(request):
         walk_len = int(request.query['walk_len'])
         threshold = float(request.query['threshold'])
         iter_bound = int(request.query['iter_bound'])
-        communities = algorithms.der(g,walk_len,threshold,iter_bound)
+        communities = algorithms.der(g, walk_len, threshold, iter_bound)
         resp = json.loads(communities.to_json())
-        response_obj = {'status': 'success', "data": resp}
+        response_obj = dict(status='success', data=resp)
         await __save_communities(communities, request)
         return web.Response(text=json.dumps(response_obj), status=200)
 
     except Exception as e:
-        response_obj = {'status': 'failure', 'description': str(e)}
+        response_obj = dict(status='failure', description=str(e))
         return web.Response(text=json.dumps(response_obj), status=500)
-
 
 
 async def frc_fgsn(request):
@@ -2187,14 +2184,14 @@ async def frc_fgsn(request):
         theta = float(request.query['theta'])
         eps = float(request.query['eps'])
         r = int(request.query['r'])
-        communities = algorithms.frc_fgsn(g,theta,eps,r)
+        communities = algorithms.frc_fgsn(g, theta, eps, r)
         resp = json.loads(communities.to_json())
-        response_obj = {'status': 'success', "data": resp}
+        response_obj = dict(status='success', data=resp)
         await __save_communities(communities, request)
         return web.Response(text=json.dumps(response_obj), status=200)
 
     except Exception as e:
-        response_obj = {'status': 'failure', 'description': str(e)}
+        response_obj = dict(status='failure', description=str(e))
         return web.Response(text=json.dumps(response_obj), status=500)
 
 
@@ -2248,7 +2245,7 @@ async def make_app():
 
     setup_swagger(app, swagger_url="/api/v1/doc", description="",
                   title="CDlib Server API",
-                  api_version="0.1.3",
+                  api_version="0.1.4",
                   contact="giulio.rossetti@gmail.com")
 
     return app

@@ -1,0 +1,4 @@
+aiohttp
+aiohttp_swagger
+cdlib>=0.1.4
+networkx>=2.2
