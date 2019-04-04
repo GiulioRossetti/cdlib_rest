@@ -201,7 +201,6 @@ class CDlib_API(object):
 
     def em(self, k) -> NodeClustering:
         res = self.loop.run_until_complete(self.__load_data("cd/em", dict(token=self.token, k=str(k))))
-        print(res)
         communities = self.__rebuild_communities(res)
 
         return communities
